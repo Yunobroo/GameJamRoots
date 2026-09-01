@@ -12,20 +12,37 @@ public class RootSwing : MonoBehaviour
     [SerializeField] private float maxSwingDistance = 30f;
     [SerializeField] private LayerMask rootLayer;
 
+    [Tooltip("Radius around the crosshair used to initially detect a root.")]
     [Range(0f, 0.15f)]
-    [SerializeField] private float aimAssistRadius = 0.045f;
+    [SerializeField] private float aimAssistRadius = 0.085f;
+
+    [Tooltip("Maximum screen-space distance a root point can be from the crosshair.")]
+    [Range(0.01f, 0.25f)]
+    [SerializeField] private float magneticTargetRadius = 0.14f;
 
     [SerializeField] private float allowedTargetBelowPlayer = 0.5f;
 
     [Header("Swing")]
-    [SerializeField] private float swingAcceleration = 18f;
+    [SerializeField] private float swingAcceleration = 22f;
 
+    [Tooltip("How much upward direction can be added while swinging.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float verticalSwingInfluence = 0.45f;
+
+    [Tooltip("How long the rope is compared to the distance from player to anchor when attaching.")]
+    [Range(0.5f, 1f)]
+    [SerializeField] private float ropeLengthMultiplier = 0.8f;
+
+    [Tooltip("How strongly the rope corrects the player when they exceed its length.")]
+    [Range(0f, 1f)]
     [SerializeField] private float ropeCorrectionStrength = 1f;
 
     [Header("Swing Boost")]
-    [SerializeField] private float upwardBoost = 7f;
-    [SerializeField] private float forwardBoost = 5f;
-    [SerializeField] private float boostCooldown = 0.35f;
+    [SerializeField] private float upwardBoost = 4.5f;
+    [SerializeField] private float forwardBoost = 7f;
+    [SerializeField] private float boostCooldown = 0.45f;
+
+    [SerializeField] private float maxUpwardSwingSpeed = 10f;
 
     [Header("Rope Visual")]
     [SerializeField] private float previewWidth = 0.035f;
@@ -51,9 +68,7 @@ public class RootSwing : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-
-        playerInput =
-            GetComponent<PlayerInput>();
+        playerInput = GetComponent<PlayerInput>();
 
         swingAction =
             playerInput.actions["Swing"];
@@ -70,7 +85,10 @@ public class RootSwing : MonoBehaviour
 
     private void Update()
     {
-        FindSwingTarget();
+        if (!IsSwinging)
+        {
+            FindSwingTarget();
+        }
 
         if (swingAction.WasPressedThisFrame())
         {
@@ -100,13 +118,16 @@ public class RootSwing : MonoBehaviour
 
         ApplySwingAcceleration();
         ApplyRopeConstraint();
+        LimitUpwardVelocity();
     }
 
     private void FindSwingTarget()
     {
         HasSwingTarget = false;
 
-        float bestDistanceFromCenter =
+        ProceduralRoot bestRoot = null;
+
+        float bestRootDistance =
             Mathf.Infinity;
 
         Vector2[] offsets =
@@ -162,30 +183,16 @@ public class RootSwing : MonoBehaviour
             if (root == null)
                 continue;
 
-            Vector3 rootPoint =
-                root.GetClosestPathPoint(
-                    hit.point
-                );
-
-            if (
-                rootPoint.y <
-                transform.position.y -
-                allowedTargetBelowPlayer
-            )
-            {
-                continue;
-            }
-
             Vector3 viewportHit =
                 playerCamera
                 .WorldToViewportPoint(
-                    rootPoint
+                    hit.point
                 );
 
             if (viewportHit.z <= 0f)
                 continue;
 
-            float distanceFromCenter =
+            float screenDistance =
                 Vector2.Distance(
                     new Vector2(
                         viewportHit.x,
@@ -198,19 +205,125 @@ public class RootSwing : MonoBehaviour
                 );
 
             if (
-                distanceFromCenter <
-                bestDistanceFromCenter
+                screenDistance <
+                bestRootDistance
             )
             {
-                bestDistanceFromCenter =
-                    distanceFromCenter;
+                bestRootDistance =
+                    screenDistance;
 
-                CurrentSwingTarget =
-                    rootPoint;
-
-                HasSwingTarget = true;
+                bestRoot =
+                    root;
             }
         }
+
+        if (bestRoot == null)
+            return;
+
+        FindBestPointOnRoot(bestRoot);
+    }
+
+    private void FindBestPointOnRoot(
+        ProceduralRoot root
+    )
+    {
+        float bestScreenDistance =
+            Mathf.Infinity;
+
+        Vector3 bestPoint =
+            Vector3.zero;
+
+        bool foundPoint =
+            false;
+
+        for (
+            int i = 0;
+            i < root.PointCount;
+            i++
+        )
+        {
+            Vector3 point =
+                root.GetWorldPoint(i);
+
+            if (
+                point.y <
+                transform.position.y -
+                allowedTargetBelowPlayer
+            )
+            {
+                continue;
+            }
+
+            float worldDistance =
+                Vector3.Distance(
+                    transform.position,
+                    point
+                );
+
+            if (
+                worldDistance >
+                maxSwingDistance
+            )
+            {
+                continue;
+            }
+
+            Vector3 viewportPoint =
+                playerCamera
+                .WorldToViewportPoint(
+                    point
+                );
+
+            if (viewportPoint.z <= 0f)
+                continue;
+
+            Vector2 screenPoint =
+                new Vector2(
+                    viewportPoint.x,
+                    viewportPoint.y
+                );
+
+            float screenDistance =
+                Vector2.Distance(
+                    screenPoint,
+                    new Vector2(
+                        0.5f,
+                        0.5f
+                    )
+                );
+
+            if (
+                screenDistance >
+                magneticTargetRadius
+            )
+            {
+                continue;
+            }
+
+            if (
+                screenDistance <
+                bestScreenDistance
+            )
+            {
+                bestScreenDistance =
+                    screenDistance;
+
+                bestPoint =
+                    point;
+
+                foundPoint =
+                    true;
+            }
+        }
+
+        if (!foundPoint)
+            return;
+
+        CurrentSwingTarget =
+            bestPoint;
+
+        HasSwingTarget =
+            true;
     }
 
     private void StartSwing()
@@ -224,11 +337,15 @@ public class RootSwing : MonoBehaviour
         swingPoint =
             CurrentSwingTarget;
 
-        ropeLength =
+        float distanceToAnchor =
             Vector3.Distance(
                 transform.position,
                 swingPoint
             );
+
+        ropeLength =
+            distanceToAnchor *
+            ropeLengthMultiplier;
 
         IsSwinging = true;
     }
@@ -242,8 +359,13 @@ public class RootSwing : MonoBehaviour
         float currentDistance =
             fromAnchor.magnitude;
 
-        if (currentDistance <= ropeLength)
+        if (
+            currentDistance <=
+            ropeLength
+        )
+        {
             return;
+        }
 
         Vector3 ropeDirection =
             fromAnchor.normalized;
@@ -302,8 +424,36 @@ public class RootSwing : MonoBehaviour
             return;
         }
 
+        Vector3 accelerationDirection =
+            tangentVelocity.normalized;
+
+        /*
+         * Never actively accelerate downward.
+         * Gravity handles the downward part
+         * of the swing.
+         */
+        if (accelerationDirection.y < 0f)
+        {
+            accelerationDirection.y = 0f;
+        }
+        else
+        {
+            accelerationDirection.y *=
+                verticalSwingInfluence;
+        }
+
+        if (
+            accelerationDirection.sqrMagnitude <
+            0.01f
+        )
+        {
+            return;
+        }
+
+        accelerationDirection.Normalize();
+
         rb.AddForce(
-            tangentVelocity.normalized *
+            accelerationDirection *
             swingAcceleration,
             ForceMode.Acceleration
         );
@@ -335,16 +485,26 @@ public class RootSwing : MonoBehaviour
                 ropeDirection
             );
 
-        if (forward.sqrMagnitude < 0.1f)
+        if (
+            forward.sqrMagnitude <
+            0.1f
+        )
         {
             forward =
                 Vector3.ProjectOnPlane(
-                    playerCamera.transform.forward,
+                    playerCamera
+                    .transform
+                    .forward,
                     ropeDirection
                 );
         }
 
-        if (forward.sqrMagnitude > 0.01f)
+        forward.y = 0f;
+
+        if (
+            forward.sqrMagnitude >
+            0.01f
+        )
         {
             forward.Normalize();
         }
@@ -359,6 +519,24 @@ public class RootSwing : MonoBehaviour
             boost,
             ForceMode.VelocityChange
         );
+    }
+
+    private void LimitUpwardVelocity()
+    {
+        Vector3 velocity =
+            rb.linearVelocity;
+
+        if (
+            velocity.y >
+            maxUpwardSwingSpeed
+        )
+        {
+            velocity.y =
+                maxUpwardSwingSpeed;
+
+            rb.linearVelocity =
+                velocity;
+        }
     }
 
     private void StopSwing()

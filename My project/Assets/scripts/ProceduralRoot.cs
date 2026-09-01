@@ -21,74 +21,173 @@ public class ProceduralRoot : MonoBehaviour
     private readonly List<Vector3> points =
         new List<Vector3>();
 
-    public int PointCount => points.Count;
+    private bool isRetracting;
+    private float retractSpeed;
+    private float retractProgress;
+
+    public int PointCount =>
+        points.Count;
 
     private void Awake()
     {
-        meshFilter = GetComponent<MeshFilter>();
-        meshCollider = GetComponent<MeshCollider>();
+        meshFilter =
+            GetComponent<MeshFilter>();
 
-        mesh = new Mesh();
-        mesh.name = "Procedural Root";
+        meshCollider =
+            GetComponent<MeshCollider>();
 
-        meshFilter.sharedMesh = mesh;
+        mesh =
+            new Mesh();
 
-        meshCollider.convex = false;
-        meshCollider.isTrigger = false;
-        meshCollider.sharedMesh = null;
+        mesh.name =
+            "Procedural Root";
+
+        meshFilter.sharedMesh =
+            mesh;
+
+        meshCollider.convex =
+            false;
+
+        meshCollider.isTrigger =
+            false;
+
+        meshCollider.sharedMesh =
+            null;
     }
 
-    public void AddPoint(Vector3 worldPoint)
+    private void Update()
     {
-        Vector3 localPoint =
-            transform.InverseTransformPoint(worldPoint);
+        if (!isRetracting)
+            return;
 
-        points.Add(localPoint);
+        UpdateRetraction();
+    }
+
+    public void AddPoint(
+        Vector3 worldPoint
+    )
+    {
+        if (isRetracting)
+            return;
+
+        Vector3 localPoint =
+            transform.InverseTransformPoint(
+                worldPoint
+            );
+
+        points.Add(
+            localPoint
+        );
 
         RebuildMesh();
     }
 
     public void SetThickness(
         float newBaseThickness,
-        float newTipThickness)
+        float newTipThickness
+    )
     {
-        baseThickness = newBaseThickness;
-        tipThickness = newTipThickness;
+        baseThickness =
+            newBaseThickness;
+
+        tipThickness =
+            newTipThickness;
 
         RebuildMesh();
     }
 
-    public Vector3 GetWorldPoint(int index)
+    public void BeginRetraction(
+        float speed
+    )
     {
-        if (points.Count == 0)
+        if (isRetracting)
+            return;
+
+        isRetracting = true;
+
+        retractSpeed =
+            Mathf.Max(
+                0.01f,
+                speed
+            );
+
+        retractProgress = 0f;
+    }
+
+    private void UpdateRetraction()
+    {
+        retractProgress +=
+            retractSpeed *
+            Time.deltaTime;
+
+        while (
+            retractProgress >= 1f &&
+            points.Count > 2
+        )
+        {
+            points.RemoveAt(
+                points.Count - 1
+            );
+
+            retractProgress -=
+                1f;
+
+            RebuildMesh();
+        }
+
+        if (
+            points.Count <= 2
+        )
+        {
+            Destroy(
+                gameObject
+            );
+        }
+    }
+
+    public Vector3 GetWorldPoint(
+        int index
+    )
+    {
+        if (
+            points.Count == 0
+        )
         {
             return transform.position;
         }
 
-        index = Mathf.Clamp(
-            index,
-            0,
-            points.Count - 1
-        );
+        index =
+            Mathf.Clamp(
+                index,
+                0,
+                points.Count - 1
+            );
 
-        return transform.TransformPoint(
-            points[index]
-        );
+        return
+            transform.TransformPoint(
+                points[index]
+            );
     }
 
     public Vector3 GetClosestPathPoint(
-        Vector3 worldPosition)
+        Vector3 worldPosition
+    )
     {
-        if (points.Count == 0)
+        if (
+            points.Count == 0
+        )
         {
             return transform.position;
         }
 
-        if (points.Count == 1)
+        if (
+            points.Count == 1
+        )
         {
-            return transform.TransformPoint(
-                points[0]
-            );
+            return
+                transform.TransformPoint(
+                    points[0]
+                );
         }
 
         Vector3 bestPoint =
@@ -97,13 +196,19 @@ public class ProceduralRoot : MonoBehaviour
         float bestDistance =
             Mathf.Infinity;
 
-        for (int i = 0; i < points.Count - 1; i++)
+        for (
+            int i = 0;
+            i < points.Count - 1;
+            i++
+        )
         {
             Vector3 start =
                 GetWorldPoint(i);
 
             Vector3 end =
-                GetWorldPoint(i + 1);
+                GetWorldPoint(
+                    i + 1
+                );
 
             Vector3 closestPoint =
                 ClosestPointOnSegment(
@@ -113,13 +218,21 @@ public class ProceduralRoot : MonoBehaviour
                 );
 
             float distance =
-                (worldPosition - closestPoint)
-                .sqrMagnitude;
+                (
+                    worldPosition -
+                    closestPoint
+                ).sqrMagnitude;
 
-            if (distance < bestDistance)
+            if (
+                distance <
+                bestDistance
+            )
             {
-                bestDistance = distance;
-                bestPoint = closestPoint;
+                bestDistance =
+                    distance;
+
+                bestPoint =
+                    closestPoint;
             }
         }
 
@@ -129,7 +242,8 @@ public class ProceduralRoot : MonoBehaviour
     private Vector3 ClosestPointOnSegment(
         Vector3 point,
         Vector3 start,
-        Vector3 end)
+        Vector3 end
+    )
     {
         Vector3 segment =
             end - start;
@@ -137,7 +251,10 @@ public class ProceduralRoot : MonoBehaviour
         float lengthSquared =
             segment.sqrMagnitude;
 
-        if (lengthSquared <= Mathf.Epsilon)
+        if (
+            lengthSquared <=
+            Mathf.Epsilon
+        )
         {
             return start;
         }
@@ -149,16 +266,29 @@ public class ProceduralRoot : MonoBehaviour
             ) /
             lengthSquared;
 
-        t = Mathf.Clamp01(t);
+        t =
+            Mathf.Clamp01(
+                t
+            );
 
-        return start +
+        return
+            start +
             segment * t;
     }
 
     private void RebuildMesh()
     {
-        if (points.Count < 2)
+        if (
+            points.Count < 2
+        )
+        {
+            mesh.Clear();
+
+            meshCollider.sharedMesh =
+                null;
+
             return;
+        }
 
         List<Vector3> vertices =
             new List<Vector3>();
@@ -169,7 +299,11 @@ public class ProceduralRoot : MonoBehaviour
         List<Vector2> uvs =
             new List<Vector2>();
 
-        for (int i = 0; i < points.Count; i++)
+        for (
+            int i = 0;
+            i < points.Count;
+            i++
+        )
         {
             Vector3 forward;
 
@@ -179,7 +313,10 @@ public class ProceduralRoot : MonoBehaviour
                     points[i + 1] -
                     points[i];
             }
-            else if (i == points.Count - 1)
+            else if (
+                i ==
+                points.Count - 1
+            )
             {
                 forward =
                     points[i] -
@@ -224,7 +361,10 @@ public class ProceduralRoot : MonoBehaviour
 
             float progress =
                 (float)i /
-                (points.Count - 1);
+                (
+                    points.Count -
+                    1
+                );
 
             float taperedProgress =
                 Mathf.Pow(
@@ -253,14 +393,19 @@ public class ProceduralRoot : MonoBehaviour
 
                 Vector3 offset =
                     right *
-                    Mathf.Cos(angle) *
+                    Mathf.Cos(
+                        angle
+                    ) *
                     thickness +
                     up *
-                    Mathf.Sin(angle) *
+                    Mathf.Sin(
+                        angle
+                    ) *
                     thickness;
 
                 vertices.Add(
-                    points[i] + offset
+                    points[i] +
+                    offset
                 );
 
                 uvs.Add(
@@ -286,36 +431,67 @@ public class ProceduralRoot : MonoBehaviour
             )
             {
                 int current =
-                    i * radialSegments + j;
+                    i *
+                    radialSegments +
+                    j;
 
                 int next =
-                    i * radialSegments +
-                    (j + 1) %
+                    i *
+                    radialSegments +
+                    (
+                        j + 1
+                    ) %
                     radialSegments;
 
                 int currentAbove =
-                    (i + 1) *
-                    radialSegments + j;
+                    (
+                        i + 1
+                    ) *
+                    radialSegments +
+                    j;
 
                 int nextAbove =
-                    (i + 1) *
+                    (
+                        i + 1
+                    ) *
                     radialSegments +
-                    (j + 1) %
+                    (
+                        j + 1
+                    ) %
                     radialSegments;
 
-                triangles.Add(current);
-                triangles.Add(currentAbove);
-                triangles.Add(next);
+                triangles.Add(
+                    current
+                );
 
-                triangles.Add(next);
-                triangles.Add(currentAbove);
-                triangles.Add(nextAbove);
+                triangles.Add(
+                    currentAbove
+                );
+
+                triangles.Add(
+                    next
+                );
+
+                triangles.Add(
+                    next
+                );
+
+                triangles.Add(
+                    currentAbove
+                );
+
+                triangles.Add(
+                    nextAbove
+                );
             }
         }
 
         mesh.Clear();
 
-        mesh.SetVertices(vertices);
+        mesh.SetVertices(
+            vertices
+        );
+
         mesh.SetTriangles(
             triangles,
             0
@@ -329,7 +505,10 @@ public class ProceduralRoot : MonoBehaviour
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
 
-        meshCollider.sharedMesh = null;
-        meshCollider.sharedMesh = mesh;
+        meshCollider.sharedMesh =
+            null;
+
+        meshCollider.sharedMesh =
+            mesh;
     }
 }
