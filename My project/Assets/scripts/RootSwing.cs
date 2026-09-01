@@ -20,7 +20,6 @@ public class RootSwing : MonoBehaviour
     [Header("Swing")]
     [SerializeField] private float swingAcceleration = 18f;
 
-    [Tooltip("How strongly the rope corrects the player when they exceed its length.")]
     [SerializeField] private float ropeCorrectionStrength = 1f;
 
     [Header("Swing Boost")]
@@ -156,8 +155,20 @@ public class RootSwing : MonoBehaviour
                 continue;
             }
 
+            ProceduralRoot root =
+                hit.collider
+                .GetComponentInParent<ProceduralRoot>();
+
+            if (root == null)
+                continue;
+
+            Vector3 rootPoint =
+                root.GetClosestPathPoint(
+                    hit.point
+                );
+
             if (
-                hit.point.y <
+                rootPoint.y <
                 transform.position.y -
                 allowedTargetBelowPlayer
             )
@@ -168,8 +179,11 @@ public class RootSwing : MonoBehaviour
             Vector3 viewportHit =
                 playerCamera
                 .WorldToViewportPoint(
-                    hit.point
+                    rootPoint
                 );
+
+            if (viewportHit.z <= 0f)
+                continue;
 
             float distanceFromCenter =
                 Vector2.Distance(
@@ -192,7 +206,7 @@ public class RootSwing : MonoBehaviour
                     distanceFromCenter;
 
                 CurrentSwingTarget =
-                    hit.point;
+                    rootPoint;
 
                 HasSwingTarget = true;
             }
@@ -325,9 +339,7 @@ public class RootSwing : MonoBehaviour
         {
             forward =
                 Vector3.ProjectOnPlane(
-                    playerCamera
-                    .transform
-                    .forward,
+                    playerCamera.transform.forward,
                     ropeDirection
                 );
         }
