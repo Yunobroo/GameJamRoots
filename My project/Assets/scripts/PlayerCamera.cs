@@ -9,12 +9,25 @@ public class PlayerCamera : MonoBehaviour
 
     [Header("Camera Settings")]
     [SerializeField] private float sensitivity = 0.15f;
-    [SerializeField] private float distance = 5f;
+
+    [SerializeField] private float distance = 7.5f;
+
+    [SerializeField] private float heightOffset = 0.5f;
+
+    [Header("Pitch")]
+    [SerializeField] private float minPitch = -30f;
+    [SerializeField] private float maxPitch = 70f;
 
     private Vector2 lookInput;
 
     private float yaw;
     private float pitch;
+
+    private void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
 
     public void OnLook(InputValue value)
     {
@@ -26,20 +39,33 @@ public class PlayerCamera : MonoBehaviour
         yaw += lookInput.x * sensitivity;
         pitch -= lookInput.y * sensitivity;
 
-        pitch = Mathf.Clamp(pitch, -30f, 70f);
+        pitch = Mathf.Clamp(
+            pitch,
+            minPitch,
+            maxPitch
+        );
 
-        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
+        Quaternion rotation =
+            Quaternion.Euler(
+                pitch,
+                yaw,
+                0f
+            );
+
+        Vector3 targetPosition =
+            cameraTarget.position +
+            Vector3.up * heightOffset;
 
         Vector3 cameraPosition =
-            cameraTarget.position -
-            rotation * Vector3.forward * distance;
+            targetPosition -
+            rotation *
+            Vector3.forward *
+            distance;
 
-        cameraTransform.position = cameraPosition;
-        cameraTransform.rotation = rotation;
+        cameraTransform.position =
+            cameraPosition;
+
+        cameraTransform.rotation =
+            rotation;
     }
-    private void Start()
-{
-    Cursor.lockState = CursorLockMode.Locked;
-    Cursor.visible = false;
-}
 }

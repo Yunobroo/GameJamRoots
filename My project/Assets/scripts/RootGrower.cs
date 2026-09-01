@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,42 +9,27 @@ public class RootGrower : MonoBehaviour
 
     [Header("Placement")]
     [SerializeField] private float maxGrowDistance = 20f;
+
+    [Tooltip("Only surfaces on these layers can grow roots.")]
     [SerializeField] private LayerMask growableLayer;
 
     [Header("Growth")]
     [SerializeField] private float growthSpeed = 3f;
     [SerializeField] private float maxRootLength = 8f;
-
-    [Tooltip("Smaller segments create smoother curves and taper.")]
-    [SerializeField] private float segmentLength = 0.2f;
-
-    [Tooltip("Makes neighbouring segments overlap slightly to hide gaps.")]
-    [SerializeField] private float segmentOverlap = 0.04f;
+    [SerializeField] private float pointSpacing = 0.15f;
 
     [Header("Curve")]
     [SerializeField] private float curveStrength = 0.25f;
     [SerializeField] private float curveSpeed = 1.5f;
 
-    [Header("Taper")]
+    [Header("Thickness")]
     [SerializeField] private float baseThickness = 0.4f;
-    [SerializeField] private float tipThickness = 0.1f;
-
-    [Tooltip("Short roots keep a thicker tip.")]
-    [Range(0.1f, 1f)]
-    [SerializeField] private float shortRootTipRatio = 0.75f;
-
-    [Tooltip("Length needed before the root gets the full taper.")]
-    [SerializeField] private float fullTaperLength = 5f;
-
-    [Tooltip("Higher values keep the root thick longer before tapering.")]
-    [Range(0.5f, 4f)]
-    [SerializeField] private float taperPower = 1.7f;
+    [SerializeField] private float tipThickness = 0.08f;
 
     private PlayerInput playerInput;
     private InputAction growRootAction;
 
-    private readonly List<GameObject> currentSegments =
-        new List<GameObject>();
+    private ProceduralRoot currentRoot;
 
     private Vector3 currentGrowPosition;
     private Vector3 currentDirection;
@@ -59,7 +43,9 @@ public class RootGrower : MonoBehaviour
     private void Awake()
     {
         playerInput = GetComponent<PlayerInput>();
-        growRootAction = playerInput.actions["GrowRoot"];
+
+        growRootAction =
+            playerInput.actions["GrowRoot"];
     }
 
     private void Update()
@@ -100,7 +86,19 @@ public class RootGrower : MonoBehaviour
             return;
         }
 
-        currentSegments.Clear();
+        GameObject rootObject = Instantiate(
+            rootPrefab,
+            Vector3.zero,
+            Quaternion.identity
+        );
+
+        currentRoot =
+            rootObject.GetComponent<ProceduralRoot>();
+
+        currentRoot.SetThickness(
+            baseThickness,
+            tipThickness
+        );
 
         currentGrowPosition = hit.point;
         currentDirection = Vector3.up;
@@ -110,22 +108,32 @@ public class RootGrower : MonoBehaviour
 
         curveSeed = Random.Range(0f, 100f);
 
+        currentRoot.AddPoint(
+            currentGrowPosition -
+            Vector3.up * 0.1f
+        );
+
+        currentRoot.AddPoint(
+            currentGrowPosition
+        );
+
         isGrowing = true;
     }
 
     private void GrowRoot()
     {
-        growthProgress += growthSpeed * Time.deltaTime;
+        growthProgress +=
+            growthSpeed * Time.deltaTime;
 
         while (
-            growthProgress >= segmentLength &&
+            growthProgress >= pointSpacing &&
             totalRootLength < maxRootLength
         )
         {
-            CreateSegment();
+            AddRootPoint();
 
-            growthProgress -= segmentLength;
-            totalRootLength += segmentLength;
+            growthProgress -= pointSpacing;
+            totalRootLength += pointSpacing;
         }
 
         if (totalRootLength >= maxRootLength)
@@ -134,132 +142,45 @@ public class RootGrower : MonoBehaviour
         }
     }
 
-    private void CreateSegment()
+    private void AddRootPoint()
     {
-        float curveX = Mathf.Sin(
-            curveSeed + totalRootLength * curveSpeed
-        ) * curveStrength;
+        float curveX =
+            Mathf.Sin(
+                curveSeed +
+                totalRootLength * curveSpeed
+            ) *
+            curveStrength;
 
-        float curveZ = Mathf.Cos(
-            curveSeed + totalRootLength * curveSpeed * 0.8f
-        ) * curveStrength;
+        float curveZ =
+            Mathf.Cos(
+                curveSeed +
+                totalRootLength *
+                curveSpeed *
+                0.8f
+            ) *
+            curveStrength;
 
-        Vector3 targetDirection = new Vector3(
-            curveX,
-            1f,
-            curveZ
-        ).normalized;
+        Vector3 targetDirection =
+            new Vector3(
+                curveX,
+                1f,
+                curveZ
+            ).normalized;
 
-        // Gentler direction changes.
-        currentDirection = Vector3.Slerp(
-            currentDirection,
-            targetDirection,
-            0.15f
-        ).normalized;
+        currentDirection =
+            Vector3.Slerp(
+                currentDirection,
+                targetDirection,
+                0.15f
+            ).normalized;
 
-        Vector3 nextPosition =
-            currentGrowPosition +
-            currentDirection * segmentLength;
+        currentGrowPosition +=
+            currentDirection *
+            pointSpacing;
 
-        Vector3 middlePosition =
-            (currentGrowPosition + nextPosition) / 2f;
-
-        GameObject segment = Instantiate(
-            rootPrefab,
-            middlePosition,
-            Quaternion.identity
+        currentRoot.AddPoint(
+            currentGrowPosition
         );
-
-        segment.transform.up = currentDirection;
-
-        float visualLength =
-            segmentLength + segmentOverlap;
-
-        segment.transform.localScale = new Vector3(
-            baseThickness,
-            visualLength / 2f,
-            baseThickness
-        );
-
-        currentSegments.Add(segment);
-
-        currentGrowPosition = nextPosition;
-
-        ApplySmoothTaper();
-    }
-
-    private void ApplySmoothTaper()
-    {
-        int segmentCount = currentSegments.Count;
-
-        if (segmentCount == 0)
-            return;
-
-        float actualRootLength =
-            segmentCount * segmentLength;
-
-        float rootLengthFactor =
-            Mathf.Clamp01(
-                actualRootLength / fullTaperLength
-            );
-
-        float shortTipThickness =
-            baseThickness * shortRootTipRatio;
-
-        float actualTipThickness =
-            Mathf.Lerp(
-                shortTipThickness,
-                tipThickness,
-                rootLengthFactor
-            );
-
-        for (int i = 0; i < segmentCount; i++)
-        {
-            float progress;
-
-            if (segmentCount <= 1)
-            {
-                progress = 0f;
-            }
-            else
-            {
-                progress =
-                    (float)i /
-                    (segmentCount - 1);
-            }
-
-            // Keeps the base thick and makes the
-            // reduction happen gradually toward the tip.
-            float curvedProgress =
-                Mathf.Pow(progress, taperPower);
-
-            // Smooth the curve again.
-            curvedProgress =
-                Mathf.SmoothStep(
-                    0f,
-                    1f,
-                    curvedProgress
-                );
-
-            float thickness =
-                Mathf.Lerp(
-                    baseThickness,
-                    actualTipThickness,
-                    curvedProgress
-                );
-
-            Transform segment =
-                currentSegments[i].transform;
-
-            float visualLength =
-                segmentLength + segmentOverlap;
-
-            segment.localScale = new Vector3(
-                thickness,
-                visualLength / 2f,
-                thickness
-            );
-        }
     }
 
     private void StopGrowing()
@@ -268,9 +189,6 @@ public class RootGrower : MonoBehaviour
             return;
 
         isGrowing = false;
-
-        ApplySmoothTaper();
-
-        currentSegments.Clear();
+        currentRoot = null;
     }
 }

@@ -13,23 +13,39 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float groundCheckDistance = 1.1f;
     [SerializeField] private LayerMask groundLayer;
 
+    [Header("Swing Movement")]
+    [SerializeField] private float swingAirControl = 8f;
+
     private Rigidbody rb;
+    private RootSwing rootSwing;
+
     private Vector2 moveInput;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        rootSwing = GetComponent<RootSwing>();
     }
 
     private void FixedUpdate()
     {
-        MovePlayer();
+        if (rootSwing != null && rootSwing.IsSwinging)
+        {
+            SwingMovement();
+        }
+        else
+        {
+            MovePlayer();
+        }
     }
 
     private void MovePlayer()
     {
-        Vector3 cameraForward = cameraTransform.forward;
-        Vector3 cameraRight = cameraTransform.right;
+        Vector3 cameraForward =
+            cameraTransform.forward;
+
+        Vector3 cameraRight =
+            cameraTransform.right;
 
         cameraForward.y = 0f;
         cameraRight.y = 0f;
@@ -46,36 +62,100 @@ public class PlayerMovement : MonoBehaviour
             movement.Normalize();
         }
 
-        rb.linearVelocity = new Vector3(
-            movement.x * moveSpeed,
-            rb.linearVelocity.y,
-            movement.z * moveSpeed
-        );
+        rb.linearVelocity =
+            new Vector3(
+                movement.x * moveSpeed,
+                rb.linearVelocity.y,
+                movement.z * moveSpeed
+            );
+
+        RotatePlayer(movement);
+    }
+
+    private void SwingMovement()
+    {
+        Vector3 cameraForward =
+            cameraTransform.forward;
+
+        Vector3 cameraRight =
+            cameraTransform.right;
+
+        cameraForward.y = 0f;
+        cameraRight.y = 0f;
+
+        cameraForward.Normalize();
+        cameraRight.Normalize();
+
+        Vector3 movement =
+            cameraForward * moveInput.y +
+            cameraRight * moveInput.x;
+
+        if (movement.sqrMagnitude > 1f)
+        {
+            movement.Normalize();
+        }
 
         if (movement.sqrMagnitude > 0.01f)
         {
-            Quaternion targetRotation =
-                Quaternion.LookRotation(movement, Vector3.up);
+            rb.AddForce(
+                movement * swingAirControl,
+                ForceMode.Acceleration
+            );
 
-            Quaternion smoothRotation =
-                Quaternion.Slerp(
-                    rb.rotation,
-                    targetRotation,
-                    rotationSpeed * Time.fixedDeltaTime
-                );
-
-            rb.MoveRotation(smoothRotation);
+            RotatePlayer(movement);
         }
     }
 
-    public void OnMove(InputValue value)
+    private void RotatePlayer(
+        Vector3 movement
+    )
     {
-        moveInput = value.Get<Vector2>();
+        if (movement.sqrMagnitude <= 0.01f)
+            return;
+
+        Quaternion targetRotation =
+            Quaternion.LookRotation(
+                movement,
+                Vector3.up
+            );
+
+        Quaternion smoothRotation =
+            Quaternion.Slerp(
+                rb.rotation,
+                targetRotation,
+                rotationSpeed *
+                Time.fixedDeltaTime
+            );
+
+        rb.MoveRotation(
+            smoothRotation
+        );
     }
 
-    public void OnJump(InputValue value)
+    public void OnMove(
+        InputValue value
+    )
     {
-        if (value.isPressed && IsGrounded())
+        moveInput =
+            value.Get<Vector2>();
+    }
+
+    public void OnJump(
+        InputValue value
+    )
+    {
+        if (!value.isPressed)
+            return;
+
+        if (
+            rootSwing != null &&
+            rootSwing.IsSwinging
+        )
+        {
+            return;
+        }
+
+        if (IsGrounded())
         {
             rb.AddForce(
                 Vector3.up * jumpForce,
