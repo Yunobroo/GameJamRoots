@@ -35,6 +35,12 @@ public class RootGrower : MonoBehaviour
     [SerializeField] private float baseThickness = 0.4f;
     [SerializeField] private float tipThickness = 0.08f;
 
+    [Header("Movable Object Interaction")]
+    [Tooltip("Radius around a new root point that can push movable objects.")]
+    [SerializeField] private float movableInteractionRadius = 0.35f;
+    [SerializeField] private float movablePushForce = 2.5f;
+    [SerializeField] private LayerMask movableObjectLayer = ~0;
+
     [Header("Retraction")]
     [SerializeField] private float retractSpeed = 12f;
 
@@ -315,6 +321,43 @@ public class RootGrower : MonoBehaviour
         currentRoot.AddPoint(
             currentGrowPosition
         );
+
+        PushMovableObjects();
+    }
+
+    private void PushMovableObjects()
+    {
+        Collider[] nearbyColliders =
+            Physics.OverlapSphere(
+                currentGrowPosition,
+                movableInteractionRadius,
+                movableObjectLayer,
+                QueryTriggerInteraction.Ignore
+            );
+
+        HashSet<MovableObjects> pushedObjects =
+            new HashSet<MovableObjects>();
+
+        foreach (Collider nearbyCollider in nearbyColliders)
+        {
+            MovableObjects movableObject =
+                nearbyCollider.GetComponentInParent<MovableObjects>();
+
+            if (
+                movableObject == null ||
+                !pushedObjects.Add(movableObject)
+            )
+            {
+                continue;
+            }
+
+            movableObject.PushFromRoot(
+                currentRoot,
+                currentGrowPosition,
+                currentDirection,
+                movablePushForce
+            );
+        }
     }
 
     private void StopGrowing()
