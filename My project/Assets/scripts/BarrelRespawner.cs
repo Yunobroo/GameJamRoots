@@ -6,21 +6,25 @@ using UnityEngine.SceneManagement;
 [RequireComponent(typeof(Collider))]
 public class BarrelRespawner : MonoBehaviour
 {
+    [Header("Movement")]
+    [Tooltip("Extra acceleration applied in the barrel's current movement direction.")]
+    [SerializeField] private float acceleration = 35f;
+
+    [Tooltip("Maximum speed of the barrel.")]
+    [SerializeField] private float maxSpeed = 30f;
+
     [Header("Root Detection")]
     [SerializeField] private LayerMask rootLayer;
 
     [Header("Stuck Respawn")]
-    [Tooltip("Barrel must be moving slower than this while touching a root.")]
     [SerializeField] private float stuckSpeedThreshold = 0.75f;
 
-    [Tooltip("How long the barrel must stay stuck against a root.")]
     [SerializeField] private float stuckTimeBeforeRespawn = 2f;
 
     [Header("Lava Respawn")]
     [SerializeField] private float lavaRespawnDelay = 0.5f;
 
     [Header("Player")]
-    [Tooltip("Optional delay before restarting the level after hitting the player.")]
     [Min(0f)]
     [SerializeField] private float playerKillDelay = 0f;
 
@@ -48,7 +52,28 @@ public class BarrelRespawner : MonoBehaviour
         if (respawning)
             return;
 
+        AccelerateBarrel();
         CheckIfStuck();
+    }
+
+    private void AccelerateBarrel()
+    {
+        Vector3 velocity = rb.linearVelocity;
+
+        // Only boost the barrel once it has started moving.
+        if (velocity.sqrMagnitude > 0.1f)
+        {
+            rb.AddForce(
+                velocity.normalized * acceleration,
+                ForceMode.Acceleration
+            );
+        }
+
+        if (rb.linearVelocity.magnitude > maxSpeed)
+        {
+            rb.linearVelocity =
+                rb.linearVelocity.normalized * maxSpeed;
+        }
     }
 
     private void CheckIfStuck()
@@ -110,7 +135,6 @@ public class BarrelRespawner : MonoBehaviour
         if (respawning || playerKilled)
             return;
 
-        // Player
         PlayerMovement player =
             other.GetComponentInParent<PlayerMovement>();
 
@@ -120,13 +144,11 @@ public class BarrelRespawner : MonoBehaviour
             return;
         }
 
-        // Root
         if (IsRoot(other))
         {
             touchingRoot = true;
         }
 
-        // Lava
         if (IsLava(other))
         {
             StartCoroutine(
