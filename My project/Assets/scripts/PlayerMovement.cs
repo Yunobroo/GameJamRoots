@@ -29,7 +29,10 @@ public class PlayerMovement : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (rootSwing != null && rootSwing.IsSwinging)
+        if (
+            rootSwing != null &&
+            rootSwing.IsRootMovementActive
+        )
         {
             SwingMovement();
         }
@@ -173,4 +176,10 @@ public class PlayerMovement : MonoBehaviour
             groundLayer
         );
     }
+
+    public bool IsGroundedNow()
+    {
+        return IsGrounded();
+    }
+
 }

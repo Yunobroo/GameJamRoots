@@ -10,12 +10,12 @@ public class RootGrower : MonoBehaviour
 
     [Header("Placement")]
     [SerializeField] private float normalGrowDistance = 20f;
-    [SerializeField] private float quickGrowDistance = 85f;
+    [SerializeField] private float zoomGrowDistance = 110f;
 
     [Tooltip("Only surfaces on these layers can grow roots.")]
     [SerializeField] private LayerMask growableLayer;
 
-    [Header("Quick Time Mode")]
+    [Header("Quick Time")]
     [Range(0.05f, 1f)]
     [SerializeField] private float quickTimeScale = 0.25f;
 
@@ -47,7 +47,8 @@ public class RootGrower : MonoBehaviour
     private PlayerInput playerInput;
 
     private InputAction growRootAction;
-    private InputAction quickGrowModeAction;
+    private InputAction zoomModeAction;
+    private PlayerCamera playerCameraController;
 
     private ProceduralRoot currentRoot;
 
@@ -63,8 +64,7 @@ public class RootGrower : MonoBehaviour
     private float curveSeed;
 
     private bool isGrowing;
-    private bool quickTimeActive;
-
+    private bool zoomActive;
     private float normalFixedDeltaTime;
 
     private readonly Queue<ProceduralRoot> placedRoots =
@@ -78,16 +78,18 @@ public class RootGrower : MonoBehaviour
         growRootAction =
             playerInput.actions["GrowRoot"];
 
-        quickGrowModeAction =
+        zoomModeAction =
             playerInput.actions["QuickGrowMode"];
 
-        normalFixedDeltaTime =
-            Time.fixedDeltaTime;
+        playerCameraController =
+            playerCamera.GetComponentInParent<PlayerCamera>();
+
+        normalFixedDeltaTime = Time.fixedDeltaTime;
     }
 
     private void Update()
     {
-        UpdateQuickTimeMode();
+        UpdateZoomMode();
 
         if (growRootAction.WasPressedThisFrame())
         {
@@ -105,47 +107,49 @@ public class RootGrower : MonoBehaviour
         }
     }
 
-    private void UpdateQuickTimeMode()
+    private void UpdateZoomMode()
     {
-        bool wantsQuickTime =
-            quickGrowModeAction.IsPressed();
+        bool wantsZoom =
+            zoomModeAction.IsPressed();
 
-        if (
-            wantsQuickTime &&
-            !quickTimeActive
-        )
-        {
-            StartQuickTime();
-        }
-        else if (
-            !wantsQuickTime &&
-            quickTimeActive
-        )
-        {
-            StopQuickTime();
-        }
-    }
+        if (wantsZoom == zoomActive)
+            return;
 
-    private void StartQuickTime()
-    {
-        quickTimeActive = true;
+        zoomActive = wantsZoom;
 
         Time.timeScale =
-            quickTimeScale;
+            zoomActive
+                ? quickTimeScale
+                : 1f;
 
         Time.fixedDeltaTime =
-            normalFixedDeltaTime *
-            quickTimeScale;
+            zoomActive
+                ? normalFixedDeltaTime * quickTimeScale
+                : normalFixedDeltaTime;
+
+        if (playerCameraController != null)
+        {
+            playerCameraController.SetZoomActive(
+                zoomActive
+            );
+        }
     }
 
-    private void StopQuickTime()
+    public bool TryGetGrowablePoint(
+        Ray ray,
+        float radius,
+        float distance,
+        out RaycastHit hit
+    )
     {
-        quickTimeActive = false;
-
-        Time.timeScale = 1f;
-
-        Time.fixedDeltaTime =
-            normalFixedDeltaTime;
+        return Physics.SphereCast(
+            ray,
+            radius,
+            out hit,
+            distance,
+            growableLayer,
+            QueryTriggerInteraction.Ignore
+        );
     }
 
     private void StartGrowing()
@@ -154,8 +158,8 @@ public class RootGrower : MonoBehaviour
             return;
 
         float currentGrowDistance =
-            quickTimeActive
-                ? quickGrowDistance
+            zoomActive
+                ? zoomGrowDistance
                 : normalGrowDistance;
 
         Ray ray =
@@ -390,14 +394,13 @@ public class RootGrower : MonoBehaviour
 
     private void OnDisable()
     {
-        if (quickTimeActive)
+        zoomActive = false;
+        Time.timeScale = 1f;
+        Time.fixedDeltaTime = normalFixedDeltaTime;
+
+        if (playerCameraController != null)
         {
-            Time.timeScale = 1f;
-
-            Time.fixedDeltaTime =
-                normalFixedDeltaTime;
-
-            quickTimeActive = false;
+            playerCameraController.SetZoomActive(false);
         }
     }
 }

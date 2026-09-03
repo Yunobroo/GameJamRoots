@@ -31,7 +31,7 @@ public class RootSwing : MonoBehaviour
 
     [Tooltip("How long the rope is compared to the distance from player to anchor when attaching.")]
     [Range(0.5f, 1f)]
-    [SerializeField] private float ropeLengthMultiplier = 0.8f;
+    [SerializeField] private float ropeLengthMultiplier = 0.6f;
 
     [Tooltip("How strongly the rope corrects the player when they exceed its length.")]
     [Range(0f, 1f)]
@@ -44,6 +44,13 @@ public class RootSwing : MonoBehaviour
 
     [SerializeField] private float maxUpwardSwingSpeed = 10f;
 
+    [Header("Root Pull")]
+    [SerializeField] private float pullLaunchSpeed = 22f;
+    [Tooltip("Extra strength applied when pulling toward a point below the player.")]
+    [SerializeField] private float downwardPullMultiplier = 1.5f;
+    [SerializeField] private float pullAimRadius = 0.3f;
+    [SerializeField] private float pullVisualDuration = 0.25f;
+
     [Header("Rope Visual")]
     [SerializeField] private float previewWidth = 0.035f;
     [SerializeField] private float activeWidth = 0.06f;
@@ -53,13 +60,22 @@ public class RootSwing : MonoBehaviour
 
     private InputAction swingAction;
     private InputAction jumpAction;
+    private InputAction rootPullAction;
 
     private Vector3 swingPoint;
 
     private float ropeLength;
     private float lastBoostTime = -999f;
 
+    private Vector3 pullPoint;
+    private RootGrower rootGrower;
+    private PlayerMovement playerMovement;
+    private float pullVisualEndTime;
+    private bool pullAvailable = true;
+
     public bool IsSwinging { get; private set; }
+    public bool IsPulling { get; private set; }
+    public bool IsRootMovementActive => IsSwinging || IsPulling;
 
     public bool HasSwingTarget { get; private set; }
 
@@ -69,12 +85,17 @@ public class RootSwing : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         playerInput = GetComponent<PlayerInput>();
+        rootGrower = GetComponent<RootGrower>();
+        playerMovement = GetComponent<PlayerMovement>();
 
         swingAction =
             playerInput.actions["Swing"];
 
         jumpAction =
             playerInput.actions["Jump"];
+
+        rootPullAction =
+            playerInput.actions["RootPull"];
 
         if (ropeLine != null)
         {
@@ -85,6 +106,14 @@ public class RootSwing : MonoBehaviour
 
     private void Update()
     {
+        if (
+            playerMovement != null &&
+            playerMovement.IsGroundedNow()
+        )
+        {
+            pullAvailable = true;
+        }
+
         if (!IsSwinging)
         {
             FindSwingTarget();
@@ -98,6 +127,19 @@ public class RootSwing : MonoBehaviour
         if (swingAction.WasReleasedThisFrame())
         {
             StopSwing();
+        }
+
+        if (rootPullAction.WasPressedThisFrame())
+        {
+            StartRootPull();
+        }
+
+        if (
+            IsPulling &&
+            Time.unscaledTime >= pullVisualEndTime
+        )
+        {
+            StopRootPull();
         }
 
         if (
@@ -119,6 +161,62 @@ public class RootSwing : MonoBehaviour
         ApplySwingAcceleration();
         ApplyRopeConstraint();
         LimitUpwardVelocity();
+    }
+
+    private void StartRootPull()
+    {
+        if (
+            IsSwinging ||
+            IsPulling ||
+            !pullAvailable ||
+            playerMovement == null ||
+            playerMovement.IsGroundedNow()
+        )
+            return;
+
+        Ray ray = new Ray(
+            playerCamera.transform.position,
+            playerCamera.transform.forward
+        );
+
+        if (
+            rootGrower == null ||
+            !rootGrower.TryGetGrowablePoint(
+                ray,
+                pullAimRadius,
+                maxSwingDistance,
+                out RaycastHit hit
+            )
+        )
+        {
+            return;
+        }
+
+        pullPoint = hit.point;
+
+        Vector3 launchDirection =
+            pullPoint - rb.position;
+
+        if (launchDirection.y < 0f)
+        {
+            launchDirection.y *=
+                downwardPullMultiplier;
+        }
+
+        launchDirection.Normalize();
+
+        rb.linearVelocity =
+            launchDirection * pullLaunchSpeed;
+
+        pullAvailable = false;
+        IsPulling = true;
+        pullVisualEndTime =
+            Time.unscaledTime + pullVisualDuration;
+    }
+
+    private void StopRootPull()
+    {
+        IsPulling = false;
     }
 
     private void FindSwingTarget()
@@ -328,7 +426,7 @@ public class RootSwing : MonoBehaviour
 
     private void StartSwing()
     {
-        if (IsSwinging)
+        if (IsSwinging || IsPulling)
             return;
 
         if (!HasSwingTarget)
@@ -551,6 +649,16 @@ public class RootSwing : MonoBehaviour
     {
         if (ropeLine == null)
             return;
+
+        if (IsPulling)
+        {
+            ropeLine.enabled = true;
+            ropeLine.startWidth = activeWidth;
+            ropeLine.endWidth = activeWidth;
+            ropeLine.SetPosition(0, GetRopeStartPosition());
+            ropeLine.SetPosition(1, pullPoint);
+            return;
+        }
 
         if (IsSwinging)
         {

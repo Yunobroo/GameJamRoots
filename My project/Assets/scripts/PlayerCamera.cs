@@ -29,6 +29,11 @@ public class PlayerCamera : MonoBehaviour
     [Tooltip("How quickly the normal speed FOV changes.")]
     [SerializeField] private float fovSmoothSpeed = 5f;
 
+    [Header("Zoom")]
+    [Tooltip("Lower FOV values create a stronger optical zoom.")]
+    [SerializeField] private float zoomFOV = 25f;
+    [SerializeField] private float zoomSpeed = 14f;
+
     [Header("Swing Release FOV Kick")]
     [Tooltip("Extra FOV added when releasing a swing at high speed.")]
     [SerializeField] private float releaseFOVKick = 8f;
@@ -54,6 +59,12 @@ public class PlayerCamera : MonoBehaviour
     private RootSwing rootSwing;
 
     private bool wasSwinging;
+    private bool zoomActive;
+
+    public void SetZoomActive(bool active)
+    {
+        zoomActive = active;
+    }
 
     private void Awake()
     {
@@ -237,6 +248,18 @@ public class PlayerCamera : MonoBehaviour
             playerRigidbody == null
         )
         {
+            return;
+        }
+
+        if (zoomActive)
+        {
+            playerCamera.fieldOfView =
+                Mathf.Lerp(
+                    playerCamera.fieldOfView,
+                    zoomFOV,
+                    zoomSpeed * Time.unscaledDeltaTime
+                );
+
             return;
         }
 

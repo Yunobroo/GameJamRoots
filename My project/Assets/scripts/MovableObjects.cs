@@ -7,6 +7,8 @@ public class MovableObjects : MonoBehaviour
     [Header("Root Interaction")]
     [SerializeField] private bool canBeMovedByRoots = true;
     [SerializeField] private bool stayAttachedToRoot = true;
+    [Tooltip("Prevents the player and other physics objects from moving this object.")]
+    [SerializeField] private bool rootsAreTheOnlyMover = true;
     [SerializeField] private float rootForceMultiplier = 1f;
     [SerializeField] private float maximumSpeed = 8f;
 
@@ -17,6 +19,11 @@ public class MovableObjects : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+
+        if (rootsAreTheOnlyMover)
+        {
+            rb.isKinematic = true;
+        }
     }
 
     private void FixedUpdate()
@@ -43,8 +50,17 @@ public class MovableObjects : MonoBehaviour
         float force
     )
     {
-        if (!canBeMovedByRoots || rb.isKinematic)
+        if (!canBeMovedByRoots)
             return;
+
+        if (rootsAreTheOnlyMover)
+        {
+            rb.isKinematic = false;
+        }
+        else if (rb.isKinematic)
+        {
+            return;
+        }
 
         Collider objectCollider =
             GetComponent<Collider>();
@@ -119,6 +135,14 @@ public class MovableObjects : MonoBehaviour
         {
             Destroy(rootJoint);
             rootJoint = null;
+
+            if (rootsAreTheOnlyMover)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic = true;
+            }
+
             return;
         }
 
