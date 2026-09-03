@@ -64,7 +64,7 @@
                     "name": "RootPull",
                     "type": "Button",
                     "id": "dc75a275-bb82-48f0-a748-b51bdf7eec63",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
@@ -295,6 +295,17 @@
                     "name": "",
                     "id": "2631f7de-dd01-452c-b67b-9fa206ac9e7a",
                     "path": "<Mouse>/middleButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "RootPull",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b5b1c999-74c1-4b53-827c-206a01cd14bf",
+                    "path": "<Gamepad>/rightShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

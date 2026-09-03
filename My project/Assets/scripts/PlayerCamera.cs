@@ -10,10 +10,19 @@ public class PlayerCamera : MonoBehaviour
     [Header("Sensitivity")]
     [SerializeField] private float mouseSensitivity = 0.15f;
     [SerializeField] private float controllerSensitivity = 140f;
+    [Tooltip("Lower values feel more responsive; higher values feel smoother.")]
+    [SerializeField] private float lookSmoothTime = 0.045f;
 
     [Header("Camera Settings")]
     [SerializeField] private float distance = 7.5f;
     [SerializeField] private float heightOffset = 0.5f;
+
+    [Header("Camera Collision")]
+    [SerializeField] private LayerMask cameraCollisionLayers = ~0;
+    [SerializeField] private float cameraCollisionRadius = 0.25f;
+    [SerializeField] private float cameraCollisionPadding = 0.1f;
+    [SerializeField] private float minimumCameraDistance = 0.3f;
+    [SerializeField] private float cameraReturnSpeed = 15f;
 
     [Header("Pitch")]
     [SerializeField] private float minPitch = -30f;
@@ -51,6 +60,10 @@ public class PlayerCamera : MonoBehaviour
 
     private float yaw;
     private float pitch;
+    private float targetYaw;
+    private float targetPitch;
+    private float yawSmoothVelocity;
+    private float pitchSmoothVelocity;
 
     private float currentReleaseKick;
 
@@ -85,6 +98,14 @@ public class PlayerCamera : MonoBehaviour
 
         Cursor.visible =
             false;
+
+        Vector3 startingAngles =
+            cameraTransform.eulerAngles;
+
+        yaw = startingAngles.y;
+        pitch = NormalizeAngle(startingAngles.x);
+        targetYaw = yaw;
+        targetPitch = pitch;
 
         if (playerCamera != null)
         {
@@ -127,33 +148,51 @@ public class PlayerCamera : MonoBehaviour
                 Gamepad.current.rightStick
                     .ReadValue();
 
-            yaw +=
+            targetYaw +=
                 controllerInput.x *
                 controllerSensitivity *
                 Time.unscaledDeltaTime;
 
-            pitch -=
+            targetPitch -=
                 controllerInput.y *
                 controllerSensitivity *
                 Time.unscaledDeltaTime;
         }
         else
         {
-            yaw +=
+            targetYaw +=
                 lookInput.x *
                 mouseSensitivity;
 
-            pitch -=
+            targetPitch -=
                 lookInput.y *
                 mouseSensitivity;
         }
 
-        pitch =
+        targetPitch =
             Mathf.Clamp(
-                pitch,
+                targetPitch,
                 minPitch,
                 maxPitch
             );
+
+        yaw = Mathf.SmoothDampAngle(
+            yaw,
+            targetYaw,
+            ref yawSmoothVelocity,
+            lookSmoothTime,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime
+        );
+
+        pitch = Mathf.SmoothDampAngle(
+            pitch,
+            targetPitch,
+            ref pitchSmoothVelocity,
+            lookSmoothTime,
+            Mathf.Infinity,
+            Time.unscaledDeltaTime
+        );
 
         cameraTransform.rotation =
             Quaternion.Euler(
@@ -163,6 +202,13 @@ public class PlayerCamera : MonoBehaviour
             );
     }
 
+    private float NormalizeAngle(float angle)
+    {
+        return angle > 180f
+            ? angle - 360f
+            : angle;
+    }
+
     private void UpdateCameraPosition()
     {
         Vector3 targetPosition =
@@ -170,11 +216,72 @@ public class PlayerCamera : MonoBehaviour
             Vector3.up *
             heightOffset;
 
-        Vector3 cameraPosition =
+        Vector3 desiredCameraPosition =
             targetPosition -
             cameraTransform.rotation *
             Vector3.forward *
             distance;
+
+        Vector3 cameraDirection =
+            desiredCameraPosition - targetPosition;
+
+        float desiredDistance =
+            cameraDirection.magnitude;
+
+        if (desiredDistance <= Mathf.Epsilon)
+        {
+            cameraTransform.position = targetPosition;
+            return;
+        }
+
+        cameraDirection /= desiredDistance;
+
+        RaycastHit[] hits = Physics.SphereCastAll(
+            targetPosition,
+            cameraCollisionRadius,
+            cameraDirection,
+            desiredDistance,
+            cameraCollisionLayers,
+            QueryTriggerInteraction.Ignore
+        );
+
+        float closestDistance = desiredDistance;
+        bool obstructionFound = false;
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider.transform.IsChildOf(transform))
+                continue;
+
+            obstructionFound = true;
+            closestDistance = Mathf.Min(
+                closestDistance,
+                hit.distance
+            );
+        }
+
+        Vector3 cameraPosition;
+
+        if (obstructionFound)
+        {
+            float safeDistance = Mathf.Clamp(
+                closestDistance - cameraCollisionPadding,
+                minimumCameraDistance,
+                desiredDistance
+            );
+
+            cameraPosition =
+                targetPosition +
+                cameraDirection * safeDistance;
+        }
+        else
+        {
+            cameraPosition = Vector3.Lerp(
+                cameraTransform.position,
+                desiredCameraPosition,
+                cameraReturnSpeed * Time.unscaledDeltaTime
+            );
+        }
 
         cameraTransform.position =
             cameraPosition;

@@ -152,6 +152,192 @@ public class RootGrower : MonoBehaviour
         );
     }
 
+#if false
+    public void UnlockVineBoostPad()
+    {
+        vineBoostPadUnlocked = true;
+    }
+
+    private void TryPlaceVineBoostPad()
+    {
+        float placementDistance =
+            zoomActive
+                ? zoomGrowDistance
+                : normalGrowDistance;
+
+        Ray ray = new Ray(
+            playerCamera.transform.position,
+            playerCamera.transform.forward
+        );
+
+        if (!TryGetGrowablePoint(
+            ray,
+            0.05f,
+            placementDistance,
+            out RaycastHit hit
+        ))
+        {
+            return;
+        }
+
+        CreateVineBoostPad(hit.point, hit.normal);
+    }
+
+    private void CreateVineBoostPad(
+        Vector3 position,
+        Vector3 surfaceNormal
+    )
+    {
+        MakeRoomForNewRoot();
+
+        Vector3 vineDirection = Vector3.ProjectOnPlane(
+            playerCamera.transform.forward,
+            surfaceNormal
+        ).normalized;
+
+        if (vineDirection.sqrMagnitude < 0.01f)
+        {
+            vineDirection = Vector3.ProjectOnPlane(
+                playerCamera.transform.up,
+                surfaceNormal
+            ).normalized;
+        }
+
+        Vector3 sideDirection = Vector3.Cross(
+            surfaceNormal,
+            vineDirection
+        ).normalized;
+
+        GameObject rootObject = Instantiate(
+            rootPrefab,
+            Vector3.zero,
+            Quaternion.identity
+        );
+
+        ProceduralRoot padRoot =
+            rootObject.GetComponent<ProceduralRoot>();
+
+        padRoot.SetThickness(
+            boostPadThickness,
+            boostPadThickness
+        );
+
+        const int vineCount = 5;
+
+        for (int vine = 0; vine < vineCount; vine++)
+        {
+            float sideOffset = Mathf.Lerp(
+                -boostPadWidth * 0.5f,
+                boostPadWidth * 0.5f,
+                (float)vine / (vineCount - 1)
+            );
+
+            Vector3 vineStart =
+                position + sideDirection * sideOffset;
+
+            Vector3 vineEnd =
+                vineStart + vineDirection * boostPadLength;
+
+            bool forward = vine % 2 == 0;
+
+            AddBoostPadSegment(
+                padRoot,
+                forward ? vineStart : vineEnd,
+                forward ? vineEnd : vineStart
+            );
+
+            if (vine < vineCount - 1)
+            {
+                float nextOffset = Mathf.Lerp(
+                    -boostPadWidth * 0.5f,
+                    boostPadWidth * 0.5f,
+                    (float)(vine + 1) / (vineCount - 1)
+                );
+
+                Vector3 connectorEnd =
+                    position + sideDirection * nextOffset +
+                    (forward ? vineDirection * boostPadLength : Vector3.zero);
+
+                AddBoostPadSegment(
+                    padRoot,
+                    forward ? vineEnd : vineStart,
+                    connectorEnd
+                );
+            }
+        }
+
+        placedRoots.Enqueue(padRoot);
+
+        GameObject triggerObject =
+            new GameObject("Vine Boost Pad Trigger");
+
+        triggerObject.transform.SetParent(
+            rootObject.transform,
+            true
+        );
+
+        triggerObject.transform.position =
+            position +
+            vineDirection * (boostPadLength * 0.5f) +
+            surfaceNormal * 0.25f;
+
+        triggerObject.transform.rotation =
+            Quaternion.LookRotation(
+                vineDirection,
+                surfaceNormal
+            );
+
+        VineBoostPad boostPad =
+            triggerObject.AddComponent<VineBoostPad>();
+
+        Vector3 launchDirection =
+            (vineDirection +
+             surfaceNormal * boostPadLift).normalized;
+
+        boostPad.Configure(
+            launchDirection,
+            boostPadLaunchSpeed,
+            new Vector3(
+                boostPadWidth,
+                0.5f,
+                boostPadLength
+            )
+        );
+    }
+
+    private void AddBoostPadSegment(
+        ProceduralRoot root,
+        Vector3 start,
+        Vector3 end
+    )
+    {
+        int steps = Mathf.Max(
+            1,
+            Mathf.CeilToInt(
+                Vector3.Distance(start, end) /
+                Mathf.Max(0.05f, boostPadPointSpacing)
+            )
+        );
+
+        if (root.PointCount == 0)
+        {
+            root.AddPoint(start);
+        }
+
+        for (int i = 1; i <= steps; i++)
+        {
+            root.AddPoint(
+                Vector3.Lerp(
+                    start,
+                    end,
+                    (float)i / steps
+                )
+            );
+        }
+    }
+
+#endif
+
     private void StartGrowing()
     {
         if (isGrowing)

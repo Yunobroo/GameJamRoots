@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(Collider))]
@@ -36,6 +35,7 @@ public class BarrelRespawner : MonoBehaviour
     private bool touchingRoot;
     private bool respawning;
     private bool playerKilled;
+    private PlayerMovement killedPlayer;
 
     private float stuckTimer;
 
@@ -140,7 +140,7 @@ public class BarrelRespawner : MonoBehaviour
 
         if (player != null)
         {
-            KillPlayer();
+            KillPlayer(player);
             return;
         }
 
@@ -157,36 +157,38 @@ public class BarrelRespawner : MonoBehaviour
         }
     }
 
-    private void KillPlayer()
+    private void KillPlayer(PlayerMovement player)
     {
         if (playerKilled)
             return;
 
         playerKilled = true;
+        killedPlayer = player;
 
         if (playerKillDelay <= 0f)
         {
-            RestartLevel();
+            RespawnPlayer();
         }
         else
         {
             Invoke(
-                nameof(RestartLevel),
+                nameof(RespawnPlayer),
                 playerKillDelay
             );
         }
     }
 
-    private void RestartLevel()
+    private void RespawnPlayer()
     {
         Time.timeScale = 1f;
 
-        Scene activeScene =
-            SceneManager.GetActiveScene();
+        if (killedPlayer != null)
+        {
+            killedPlayer.Respawn();
+        }
 
-        SceneManager.LoadScene(
-            activeScene.buildIndex
-        );
+        killedPlayer = null;
+        playerKilled = false;
     }
 
     private bool IsRoot(Collider other)

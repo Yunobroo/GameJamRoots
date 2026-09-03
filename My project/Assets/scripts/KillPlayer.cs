@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(Collider))]
 [RequireComponent(typeof(Rigidbody))]
@@ -13,6 +12,7 @@ public class KillPlayer : MonoBehaviour
     [SerializeField] private float rootBurnSpeed = 20f;
 
     private bool playerKilled;
+    private PlayerMovement killedPlayer;
 
     private void Awake()
     {
@@ -52,29 +52,31 @@ public class KillPlayer : MonoBehaviour
             return;
 
         playerKilled = true;
+        killedPlayer = player;
 
         if (restartDelay <= 0f)
         {
-            RestartLevel();
+            RespawnPlayer();
         }
         else
         {
             Invoke(
-                nameof(RestartLevel),
+                nameof(RespawnPlayer),
                 restartDelay
             );
         }
     }
 
-    private void RestartLevel()
+    private void RespawnPlayer()
     {
         Time.timeScale = 1f;
 
-        Scene activeScene =
-            SceneManager.GetActiveScene();
+        if (killedPlayer != null)
+        {
+            killedPlayer.Respawn();
+        }
 
-        SceneManager.LoadScene(
-            activeScene.buildIndex
-        );
+        killedPlayer = null;
+        playerKilled = false;
     }
 }
