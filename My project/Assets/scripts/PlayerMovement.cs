@@ -249,7 +249,7 @@ public class PlayerMovement : MonoBehaviour
                 alignment =
                     TextAnchor.UpperLeft,
 
-                fontSize = 20,
+                fontSize = 18,
 
                 wordWrap = true,
 
@@ -287,7 +287,8 @@ public class PlayerMovement : MonoBehaviour
             titleStyle
         );
 
-        const string controls =
+        const string keyboardControls =
+            "KEYBOARD & MOUSE\n\n" +
             "WASD        Move\n" +
             "Mouse       Look around\n" +
             "Space       Jump / boost while swinging\n" +
@@ -296,14 +297,35 @@ public class PlayerMovement : MonoBehaviour
             "Middle Mouse  Root Pull toward growable ground (once per airtime)\n" +
             "Left Shift  Zoom, slow time, and extend root reach";
 
+        const string playStationControls =
+            "PLAYSTATION CONTROLLER\n\n" +
+            "Left Stick   Move\n" +
+            "Right Stick  Look around\n" +
+            "X             Jump / swing boost\n" +
+            "L1            Slow time / extend reach\n" +
+            "L2            Grow roots\n" +
+            "R2            Swing\n" +
+            "R1            Vine pull";
+
         GUI.Label(
             new Rect(
-                panel.x + 45f,
+                panel.x + 25f,
                 panel.y + 95f,
-                panel.width - 90f,
+                panel.width * 0.5f - 30f,
                 300f
             ),
-            controls,
+            keyboardControls,
+            controlsStyle
+        );
+
+        GUI.Label(
+            new Rect(
+                panel.center.x + 5f,
+                panel.y + 95f,
+                panel.width * 0.5f - 30f,
+                300f
+            ),
+            playStationControls,
             controlsStyle
         );
 
