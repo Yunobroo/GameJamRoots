@@ -11,7 +11,7 @@ public sealed class GameMusic : MonoBehaviour
         "music/Tim-Struik-Area-music-prelude-2026-06-16-10_31";
 
     [Header("Music")]
-    [SerializeField, Range(0f, 1f)] private float volume = 0.22f;
+    [SerializeField, Range(0f, 1f)] private float volume = 0.00f;
     [SerializeField] private bool startMuted;
 
     private AudioSource musicSource;

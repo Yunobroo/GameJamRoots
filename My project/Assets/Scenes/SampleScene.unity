@@ -1682,7 +1682,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 136
   swingAirControl: 8
-  enableDeveloperFlight: 1
+  enableDeveloperFlight: 0
   jumpDoubleTapWindow: 0.3
   flightSpeed: 12
   flightVerticalSpeed: 9
@@ -1747,7 +1747,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   quickTimeScale: 0.25
-  maximumRoots: 5
+  quickGrowEnabled: 0
+  rootLifetime: 15
+  lifetimeRetractionSpeed: 12
   growthSpeed: 3
   maxRootLength: 12
   pointSpacing: 0.15
@@ -1773,6 +1775,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b384cf099b45c2b4f9b690a1eb7bb0a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RootSwing
+  swingEnabled: 0
+  rootPullEnabled: 0
   playerCamera: {fileID: 330585545}
   ropeStartPoint: {fileID: 1517052993}
   ropeLine: {fileID: 81713251}

@@ -3,6 +3,12 @@ using UnityEngine.InputSystem;
 
 public class RootSwing : MonoBehaviour
 {
+    [Header("Ability Availability")]
+    [Tooltip("Second Growth ability toggle. Leave disabled for the basic starting moveset.")]
+    [SerializeField] private bool swingEnabled;
+    [Tooltip("Second Growth ability toggle. Leave disabled for the basic starting moveset.")]
+    [SerializeField] private bool rootPullEnabled;
+
     [Header("References")]
     [SerializeField] private Camera playerCamera;
     [SerializeField] private Transform ropeStartPoint;
@@ -114,24 +120,33 @@ public class RootSwing : MonoBehaviour
             pullAvailable = true;
         }
 
-        if (!IsSwinging)
+        if (swingEnabled && !IsSwinging)
         {
             FindSwingTarget();
         }
+        else if (!swingEnabled)
+        {
+            HasSwingTarget = false;
+        }
 
-        if (swingAction.WasPressedThisFrame())
+        if (swingEnabled && swingAction.WasPressedThisFrame())
         {
             StartSwing();
         }
 
-        if (swingAction.WasReleasedThisFrame())
+        if (IsSwinging && (!swingEnabled || swingAction.WasReleasedThisFrame()))
         {
             StopSwing();
         }
 
-        if (rootPullAction.WasPressedThisFrame())
+        if (rootPullEnabled && rootPullAction.WasPressedThisFrame())
         {
             StartRootPull();
+        }
+
+        if (!rootPullEnabled && IsPulling)
+        {
+            StopRootPull();
         }
 
         if (
@@ -151,6 +166,27 @@ public class RootSwing : MonoBehaviour
         }
 
         UpdateRopeVisual();
+    }
+
+    public void SetSwingEnabled(bool enabled)
+    {
+        swingEnabled = enabled;
+
+        if (!enabled)
+        {
+            HasSwingTarget = false;
+            StopSwing();
+        }
+    }
+
+    public void SetRootPullEnabled(bool enabled)
+    {
+        rootPullEnabled = enabled;
+
+        if (!enabled)
+        {
+            StopRootPull();
+        }
     }
 
     private void FixedUpdate()
@@ -735,6 +771,18 @@ public class RootSwing : MonoBehaviour
                 transform.position,
                 swingPoint
             );
+        }
+    }
+
+    private void OnDisable()
+    {
+        HasSwingTarget = false;
+        IsSwinging = false;
+        IsPulling = false;
+
+        if (ropeLine != null)
+        {
+            ropeLine.enabled = false;
         }
     }
 }

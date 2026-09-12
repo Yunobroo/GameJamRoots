@@ -291,21 +291,15 @@ public class PlayerMovement : MonoBehaviour
             "KEYBOARD & MOUSE\n\n" +
             "WASD        Move\n" +
             "Mouse       Look around\n" +
-            "Space       Jump / boost while swinging\n" +
-            "Left Mouse  Grow a root on growable ground\n" +
-            "Right Mouse Swing from a root\n" +
-            "Middle Mouse  Root Pull toward growable ground (once per airtime)\n" +
-            "Left Shift  Zoom, slow time, and extend root reach";
+            "Space       Jump\n" +
+            "Left Mouse  Grow a vine on growable ground";
 
         const string playStationControls =
             "PLAYSTATION CONTROLLER\n\n" +
             "Left Stick   Move\n" +
             "Right Stick  Look around\n" +
-            "X             Jump / swing boost\n" +
-            "L1            Slow time / extend reach\n" +
-            "L2            Grow roots\n" +
-            "R2            Swing\n" +
-            "R1            Vine pull";
+            "X             Jump\n" +
+            "L2            Grow vines";
 
         GUI.Label(
             new Rect(

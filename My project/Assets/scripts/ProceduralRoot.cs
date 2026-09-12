@@ -14,6 +14,13 @@ public class ProceduralRoot : MonoBehaviour
     [Header("Taper")]
     [SerializeField] private float taperPower = 1.5f;
 
+    [Header("Lifetime")]
+    [Tooltip("Seconds after growth finishes before this vine retracts. Set to 0 for no expiry.")]
+    [Min(0f)]
+    [SerializeField] private float lifetimeAfterGrowth = 15f;
+    [Min(0.01f)]
+    [SerializeField] private float lifetimeRetractionSpeed = 12f;
+
     private Mesh mesh;
     private MeshFilter meshFilter;
     private MeshCollider meshCollider;
@@ -22,11 +29,16 @@ public class ProceduralRoot : MonoBehaviour
         new List<Vector3>();
 
     private bool isRetracting;
+    private bool growthFinished;
+    private float remainingLifetime;
     private float retractSpeed;
     private float retractProgress;
 
     public int PointCount =>
         points.Count;
+
+    public bool IsRetracting =>
+        isRetracting;
 
     private void Awake()
     {
@@ -57,10 +69,36 @@ public class ProceduralRoot : MonoBehaviour
 
     private void Update()
     {
-        if (!isRetracting)
+        if (isRetracting)
+        {
+            UpdateRetraction();
+            return;
+        }
+
+        if (!growthFinished || lifetimeAfterGrowth <= 0f)
             return;
 
-        UpdateRetraction();
+        remainingLifetime -= Time.deltaTime;
+
+        if (remainingLifetime <= 0f)
+        {
+            BeginRetraction(lifetimeRetractionSpeed);
+        }
+    }
+
+    public void ConfigureLifetime(float lifetime, float retractionSpeed)
+    {
+        lifetimeAfterGrowth = Mathf.Max(0f, lifetime);
+        lifetimeRetractionSpeed = Mathf.Max(0.01f, retractionSpeed);
+    }
+
+    public void FinishGrowing()
+    {
+        if (growthFinished || isRetracting)
+            return;
+
+        growthFinished = true;
+        remainingLifetime = lifetimeAfterGrowth;
     }
 
     public void AddPoint(

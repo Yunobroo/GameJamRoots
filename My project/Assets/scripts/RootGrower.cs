@@ -16,16 +16,22 @@ public class RootGrower : MonoBehaviour
     [SerializeField] private LayerMask growableLayer;
 
     [Header("Quick Time")]
+    [Tooltip("Second Growth ability toggle. Leave disabled for the basic starting moveset.")]
+    [SerializeField] private bool quickGrowEnabled;
     [Range(0.05f, 1f)]
     [SerializeField] private float quickTimeScale = 0.25f;
-
-    [Header("Root Limit")]
-    [SerializeField] private int maximumRoots = 5;
 
     [Header("Growth")]
     [SerializeField] private float growthSpeed = 3f;
     [SerializeField] private float maxRootLength = 8f;
     [SerializeField] private float pointSpacing = 0.15f;
+
+    [Header("Lifetime")]
+    [Tooltip("Seconds a completed vine remains before retracting. Set to 0 for no expiry.")]
+    [Min(0f)]
+    [SerializeField] private float rootLifetime = 15f;
+    [Min(0.01f)]
+    [SerializeField] private float lifetimeRetractionSpeed = 12f;
 
     [Header("Curve")]
     [SerializeField] private float curveStrength = 0.25f;
@@ -40,9 +46,6 @@ public class RootGrower : MonoBehaviour
     [SerializeField] private float movableInteractionRadius = 0.35f;
     [SerializeField] private float movablePushForce = 2.5f;
     [SerializeField] private LayerMask movableObjectLayer = ~0;
-
-    [Header("Retraction")]
-    [SerializeField] private float retractSpeed = 12f;
 
     private PlayerInput playerInput;
 
@@ -66,9 +69,6 @@ public class RootGrower : MonoBehaviour
     private bool isGrowing;
     private bool zoomActive;
     private float normalFixedDeltaTime;
-
-    private readonly Queue<ProceduralRoot> placedRoots =
-        new Queue<ProceduralRoot>();
 
     private void Awake()
     {
@@ -110,6 +110,7 @@ public class RootGrower : MonoBehaviour
     private void UpdateZoomMode()
     {
         bool wantsZoom =
+            quickGrowEnabled &&
             zoomModeAction.IsPressed();
 
         if (wantsZoom == zoomActive)
@@ -188,8 +189,6 @@ public class RootGrower : MonoBehaviour
         Vector3 surfaceNormal
     )
     {
-        MakeRoomForNewRoot();
-
         Vector3 vineDirection = Vector3.ProjectOnPlane(
             playerCamera.transform.forward,
             surfaceNormal
@@ -265,8 +264,6 @@ public class RootGrower : MonoBehaviour
                 );
             }
         }
-
-        placedRoots.Enqueue(padRoot);
 
         GameObject triggerObject =
             new GameObject("Vine Boost Pad Trigger");
@@ -364,8 +361,6 @@ public class RootGrower : MonoBehaviour
             return;
         }
 
-        MakeRoomForNewRoot();
-
         GameObject rootObject =
             Instantiate(
                 rootPrefab,
@@ -379,6 +374,11 @@ public class RootGrower : MonoBehaviour
         currentRoot.SetThickness(
             baseThickness,
             tipThickness
+        );
+
+        currentRoot.ConfigureLifetime(
+            rootLifetime,
+            lifetimeRetractionSpeed
         );
 
         currentGrowPosition =
@@ -408,10 +408,6 @@ public class RootGrower : MonoBehaviour
 
         currentRoot.AddPoint(
             currentGrowPosition
-        );
-
-        placedRoots.Enqueue(
-            currentRoot
         );
 
         isGrowing = true;
@@ -444,6 +440,12 @@ public class RootGrower : MonoBehaviour
 
     private void GrowRoot()
     {
+        if (currentRoot == null)
+        {
+            StopGrowing();
+            return;
+        }
+
         growthProgress +=
             growthSpeed *
             Time.unscaledDeltaTime;
@@ -556,30 +558,28 @@ public class RootGrower : MonoBehaviour
             return;
 
         isGrowing = false;
+
+        if (currentRoot != null)
+        {
+            currentRoot.FinishGrowing();
+        }
+
         currentRoot = null;
     }
 
-    private void MakeRoomForNewRoot()
+    public void SetQuickGrowEnabled(bool enabled)
     {
-        while (
-            placedRoots.Count >=
-            maximumRoots
-        )
-        {
-            ProceduralRoot oldestRoot =
-                placedRoots.Dequeue();
+        quickGrowEnabled = enabled;
 
-            if (oldestRoot != null)
-            {
-                oldestRoot.BeginRetraction(
-                    retractSpeed
-                );
-            }
+        if (!enabled && zoomActive)
+        {
+            UpdateZoomMode();
         }
     }
 
     private void OnDisable()
     {
+        StopGrowing();
         zoomActive = false;
         Time.timeScale = 1f;
         Time.fixedDeltaTime = normalFixedDeltaTime;

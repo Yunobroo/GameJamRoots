@@ -6,7 +6,13 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/Second Growth - 01 - A Place to Grow.unity
+    guid: fb64f4dea9995ff428a26be770d86c40
+  - enabled: 1
     path: Assets/Main Scene.unity
     guid: 1e36fc732c926f54caf180d9f016d43d
+  - enabled: 0
+    path: Assets/Scenes/Second Growth - First Light.unity
+    guid: 482abce6faecd3b43a29100be57ab884
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 942dcb849aed6d04c833ddbfc1c1b3be, type: 3}
