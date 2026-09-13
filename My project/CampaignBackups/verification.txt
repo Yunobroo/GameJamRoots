@@ -1,0 +1,6 @@
+PASS Three connected chambers loaded in Play mode
+PASS Intro cutscene restores gameplay
+PASS Player and vine controls restored after intro
+PASS 01 / REVIVAL starts locked
+PASS 01 / REVIVAL memory completes and returns control
+PASS Supply crate has an aimable growable pad
